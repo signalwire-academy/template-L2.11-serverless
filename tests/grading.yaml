@@ -1,0 +1,46 @@
+# Grading configuration for Lab 2.11: Serverless Deployment
+
+assignment:
+  id: L2.11-serverless
+  name: "Lab 2.11: Serverless Deployment"
+  level: 2
+  type: lab
+  passing_score: 70
+
+checks:
+  - id: instantiate
+    name: "Agent Instantiation"
+    points: 20
+    type: instantiate
+    file: solution/agent.py
+  - id: swml_valid
+    name: "SWML Generation"
+    points: 20
+    type: swml_valid
+    file: solution/agent.py
+  - id: func_status
+    name: "get_status function"
+    points: 20
+    type: function_exists
+    file: solution/agent.py
+    function: get_status
+  - id: func_info
+    name: "get_deployment_info function"
+    points: 20
+    type: function_exists
+    file: solution/agent.py
+    function: get_deployment_info
+  - id: has_lambda
+    name: "Lambda Handler"
+    points: 20
+    type: swml_contains
+    file: solution/agent.py
+    require:
+      - text: "lambda"
+
+feedback:
+  pass: |
+    Excellent work! You've completed Lab 2.11: Serverless Deployment.
+
+  fail: |
+    Some checks didn't pass. Review the requirements and try again.
