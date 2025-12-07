@@ -1,0 +1,121 @@
+name: Grade Submission
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'solution/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+  checks: write
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  grade:
+    name: Auto-Grade
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: pip install -q signalwire-agents pyyaml
+
+      - name: Check solution exists
+        id: check
+        run: |
+          if [ -f "solution/agent.py" ]; then
+            if grep -qE "(AgentBase|from signalwire)" solution/agent.py; then
+              echo "exists=true" >> $GITHUB_OUTPUT
+            else
+              echo "exists=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run grading
+        if: steps.check.outputs.exists == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python << 'GRADESCRIPT'
+          import subprocess, json, yaml, os, urllib.request
+
+          with open('tests/grading.yaml') as f:
+              config = yaml.safe_load(f)
+
+          results = {'assignment': config['assignment'], 'checks': [], 'score': 0, 'max_score': 0, 'passed': False}
+          agent_file = 'solution/agent.py'
+
+          swml_result = subprocess.run(['swaig-test', agent_file, '--dump-swml', '--raw'], capture_output=True, text=True, timeout=30)
+          swml_text = swml_result.stdout.lower() if swml_result.returncode == 0 else ""
+
+          tools_result = subprocess.run(['swaig-test', agent_file, '--list-tools'], capture_output=True, text=True, timeout=30)
+          tools_text = tools_result.stdout.lower() if tools_result.returncode == 0 else ""
+
+          for check in config['checks']:
+              cr = {'id': check['id'], 'name': check['name'], 'max_points': check['points'], 'points': 0, 'passed': False, 'output': ''}
+              try:
+                  if check['type'] == 'instantiate':
+                      cr['passed'] = tools_result.returncode == 0
+                  elif check['type'] == 'swml_valid':
+                      cr['passed'] = swml_text and 'sections' in swml_text
+                  elif check['type'] == 'swml_contains':
+                      cr['passed'] = all(r.get('text', '').lower() in swml_text for r in check.get('require', []))
+                  elif check['type'] == 'function_exists':
+                      cr['passed'] = check.get('function', '').lower() in tools_text
+              except Exception as e:
+                  cr['output'] = str(e)[:100]
+              if cr['passed']:
+                  cr['points'] = check['points']
+              results['checks'].append(cr)
+
+          results['max_score'] = sum(c['max_points'] for c in results['checks'])
+          results['score'] = sum(c['points'] for c in results['checks'])
+          results['percentage'] = round(results['score'] / results['max_score'] * 100, 1) if results['max_score'] > 0 else 0
+          results['passed'] = results['percentage'] >= config['assignment']['passing_score']
+
+          with open('results.json', 'w') as f:
+              json.dump(results, f, indent=2)
+
+          report = f"## Grading Results\n\n**Assignment:** {results['assignment']['name']}\n"
+          report += f"**Score:** {results['score']}/{results['max_score']} ({results['percentage']}%)\n"
+          report += f"**Status:** {'PASSED' if results['passed'] else 'NOT PASSING'}\n\n"
+          report += "### Checks\n\n| # | Check | Points | Status |\n|---|-------|--------|--------|\n"
+          for i, c in enumerate(results['checks']):
+              report += f"| {i+1} | {c['name']} | {c['points']}/{c['max_points']} | {'[x]' if c['passed'] else '[ ]'} |\n"
+
+          token, repo = os.environ.get('GITHUB_TOKEN'), os.environ.get('GITHUB_REPOSITORY', '')
+          if token and repo:
+              headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
+              try:
+                  req = urllib.request.Request(f"https://api.github.com/repos/{repo}/issues?labels=grading&state=open", headers=headers)
+                  with urllib.request.urlopen(req) as resp:
+                      issues = json.loads(resp.read().decode())
+                  url = f"https://api.github.com/repos/{repo}/issues/{issues[0]['number']}/comments" if issues else f"https://api.github.com/repos/{repo}/issues"
+                  data = json.dumps({"body": report} if issues else {"title": "Grading Results", "body": report, "labels": ["grading"]}).encode()
+                  req = urllib.request.Request(url, data=data, headers={**headers, "Content-Type": "application/json"})
+                  urllib.request.urlopen(req)
+              except: pass
+          GRADESCRIPT
+
+      - name: Upload results
+        if: steps.check.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: grading-results
+          path: results.json
+          retention-days: 90
