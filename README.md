@@ -1,2 +1,61 @@
-# template-L2.11-serverless
-Deploy an agent to AWS Lambda
+# Lab 2.11: Serverless Deployment
+
+**Duration:** 60 minutes
+**Level:** 2
+
+## Objectives
+
+Complete this lab to demonstrate production and serverless deployment skills.
+
+## Prerequisites
+
+- Completed previous Level 2 labs
+- Python 3.10+ with signalwire-agents installed
+- Docker installed (for L2.10)
+- AWS CLI configured (for L2.11)
+
+## Instructions
+
+### 1. Set Up Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 2. Implement Your Solution
+
+Edit `solution/agent.py` according to the lab requirements.
+
+### 3. Test Locally
+
+```bash
+swaig-test solution/agent.py --list-tools
+swaig-test solution/agent.py --dump-swml
+```
+
+### 4. Submit
+
+```bash
+git add solution/agent.py
+git commit -m "Complete Lab 2.11: Serverless Deployment"
+git push
+```
+
+## Grading
+
+| Check | Points |
+|-------|--------|
+| Agent Instantiation | 20 |
+| SWML Generation | 20 |
+| get_status function | 20 |
+| get_deployment_info function | 20 |
+| Lambda Handler | 20 |
+| **Total** | **100** |
+
+**Passing Score:** 70%
+
+---
+
+*SignalWire AI Agents Certification*
