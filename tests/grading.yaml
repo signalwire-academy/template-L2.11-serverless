@@ -36,7 +36,7 @@ checks:
     type: swml_contains
     file: solution/agent.py
     require:
-      - text: "lambda"
+      - text: "Lambda"
 
 feedback:
   pass: |
