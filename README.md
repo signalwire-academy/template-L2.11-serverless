@@ -58,4 +58,10 @@ git push
 
 ---
 
+## Next Assignment
+
+Ready for certification? [**Start Level 2 Written Exam**](https://classroom.github.com/a/M3RPSah6)
+
+---
+
 *SignalWire AI Agents Certification*
